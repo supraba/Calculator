@@ -1,0 +1,215 @@
+Definition:
+The HP Vertica Analytics Platform is a cluster-based, column-oriented analytics platform that is  designed to manage large, fast-growing volumes of data and provide very fast query performance when used for data warehouses and other query-intensive applications. It could drastically improve query performance over traditional relational database systems, provide high-availability, and petabyte scalability on commodity enterprise servers.
+
+One of the difference:
+Vertica can do trickle feeds into its compressed columnar storage. Greg seemed to suggest Oracle Exadata cannot. 
+•	Vertica doesn’t have indexes.
+•	Vertica sorts columns on ingest. This sorting is, of course, commonly based on attributes from columns other than the one being sorted. 
+
+Vertica recommends often keeping multiple copies of a column, for high availability and/or performance. This is not directly reflected in compression estimates. In particular, if you’re going to keep redundant copies of data for data-safety reasons anyway, Vertica recommends that you:
+•	Run queries against more than one copy of the data, for performance/throughput.
+•	Store different copies of the columns in different sort orders — e.g., according to different likely join keys — so that the copies are optimized for performance on different classes o
+
+SPEED OF INSERT IN HP VERTICA
+
+The grid-based, column-oriented Vertica Analytic Database is well known for its blinding query
+performance against large volumes of data, but unlike other column databases.It loads data many times faster than row store database.Vertica has the
+unique ability to insert data at very high rates of speed. It can even load on a non-stop basis while
+the database is being queried, thus enabling real-time analysis.
+
+It doesn’t lock tables.So, reads and writes can be performed simultaneously.
+Loading Methods
+There are three methods used to load data into a Vertica database, all of which can run while the
+database is concurrently queried:
+1. Trickle Load – insert data into Vertica as it arrives
+2. Bulk Load to Memory – ideal for fast loading of smaller data volumes (a few gigabytes)
+3. Bulk Load to Disk – ideal for large data volumes (many giga- or terabytes)
+Vertica is capable of loading many megabytes/second per machine per load stream. With
+Vertica’s shared-nothing architecture, loading can be performed in parallel, scaling linearly as
+
+
+Vertica achieves fast loading by cleverly utilizing main  memory caching, batch processing and parallelization, Firstly, Vertica caches new, incoming data into a main memory-based Write Optimized Store(WOS). In the WOS,
+the data is stored in columns and can be queried, but the data is neither compressed nor sorted yet. Then, an asynchronous process called the Tuple Mover, moves
+batches of data out of the WOS and into disk-based Read Optimized Store (ROS) containers, compressing and sorting the columns in the process. In this way, the performance cost of sorting and compression is shared and amortized across many tuples. The expected number of disk writes per INSERT will also decrease as the batch size grows. Thirdly, since Vertica database tables are partitioned across a collection of shared-nothing nodes in a grid, it distributes the INSERTs evenly across the cluster based on a partitioning key. If the INSERT rate grows, more nodes can be added to cope with the increase.
+
+ 
+INSERTS IN EXADATA:
+Oracle offers several data loading options
+ External table or SQL*Loader
+ Oracle Data Pump (import & export)
+ Change Data Capture and Trickle feed mechanisms (such as Oracle GoldenGate)
+ Oracle Database Gateways to open systems and mainframes
+ Generic Connectivity (ODBC and JDBC)
+If you are loading from files into Oracle you have two options, SQL*Loader or external tables. Oracle
+strongly recommends that you load using external tables rather than SQL*Loader:
+ Unlike SQL*Loader, external tables allows transparent parallelization inside the databas
+ 
+
+
+Compression in HP Vertica
+Compression is the process of transforming data into a compact format. Compressed data cannot be directly processed; it must first be decompressed. HP Vertica uses integer packing for unencoded integers and LZO for compressible data.
+The extensive use of compression allows a column store to occupy substantially less storage than a row store. In a column store, every value stored in a column of a projection has the same data type. This greatly facilitates compression, particularly in sorted columns. In a row store, each value of a row can have a different data type, resulting in a much less effective use of compression.
+HP Vertica's efficient storage allows the database administrator to keep much more historical data in physical storage. In other words, the archiving threshold can be set to a much earlier date than in a less efficient store.
+Compression in Oracle Exadata
+Compression in oracle exadata uses Hybrid Columnar Compression. Oracle’s Hybrid Columnar Compression technology is a new method for organizing data within a database block. As the name implies, this technology utilizes a combination of both row and columnar methods for storing data. This hybrid approach achieves the compression benefits of columnar storage, while avoiding the performance shortfalls of a pure columnar format.
+A logical construct called the compression unit is used to store a set of hybrid columnar compressed rows. When data is loaded, column values for a set of rows are grouped together and compressed. After the column data for a set of rows has been compressed, it is stored in a compression unit.  
+Storing column data together, with the same data type and similar characteristics, dramatically increases the storage savings achieved from compression. However, storing data in this manner can negatively impact database performance when application queries access more than one or two columns, perform even a modest number of updates, or insert small numbers of rows per transaction.
+ 
+•	Oracle claims 12-17X compression on a kind of data similar to that on which Vertica — which also uses 10X as a single-point overall compression marketing estimate where needed — claims 20X.
+•	Oracle selects compression algorithms automagically.
+•	Oracle’s compression doesn’t quite apply to all the data. 
+
+
+Vertica Doesn’t Do In-Place Updates:
+In most databases that were originally designed for transaction processing, updates are applied in place. Since new values could come along that don’t compress as well as the old values, some empty space must be left, or updates foregone. Since Vertica puts updates in a separate place (such as the Write Optimized Store), we can squeeze every last bit out of the data. I’ve seen some competing systems that update in place and others that don’t allow updates if maximum compression is on, but none that allow updates while still squeezing every last bit out of the data representation.
+
+High availability in HP Vertica:
+High availability means automatic redundancy and recovery ensures the ability for your DB to function, even if there are non-functional nodes.It is the ability to continue running even if a node goes down.
+To achieve this Vertica uses Buddy projections/ copies of existing on adjacent nodes.The number of buddy projections is based on K-safety number. K-safety number is the measure of fault tolerance.It represents the number of projection replicas that exists in a cluster.
+Vertica supports a K safety value of 0,1, or 2.To enable K-safety, you must have atleast 3 nodes in a cluster.
+K-Safety Requirements
+Your database must have a minimum number of nodes to be able to have a K-safety level greater than zero, as shown in the following table.:
+K-level	Number of Nodes Required
+0	1+
+1	3+
+2	5+
+K	(K+1)/2
+Note: HP Vertica does not officially support values of K higher than 2.
+Determining K-Safety
+To determine the K-safety state of a running database, run the following SQL command:
+SELECT current_fault_tolerance FROM system; 
+current_fault_tolerance 
+---------------- 
+               1
+(1 row)
+Monitoring K-Safety
+Monitoring tables can be accessed programmatically to enable external actions, such as alerts. You monitor the K-safety level by polling the SYSTEM table and checking the value.
+Loss of K-Safety
+When K nodes in your cluster fail, your database continues to run, although performance is affected. Further node failures could potentially cause the database to shut down if the failed node's data is not available from another functioning node in the cluster.
+
+http://my.vertica.com/docs/5.1.6/HTML/index.htm#1567.htm
+
+High availability in Oracle Exadata:
+Exadata MAA architecture shown in Figure 1 is designed to tolerate unplanned outages of all
+types, providing both high availability (HA) and data protection. Exadata MAA also minimizes
+planned downtime by performing maintenance in a rolling fashion.
+The Exadata MAA architecture consists of the following major building blocks:
+1. A production Exadata system (primary). The production system may consist of one or more
+interconnected Exadata Database Machines as needed to address performance and scale-out
+requirements for data warehouse, OLTP, or consolidated application environments.
+2. A standby Exadata system that is a replica of the primary. Oracle Data Guard is used to
+maintain synchronized standby databases that are exact, physical replicas of production
+databases hosted on the primary system. This provides optimal data protection and high
+availability if an unplanned outage makes the primary system unavailable. A standby Exadata
+system is most often located in a different data center or geography to provide disaster
+recovery (DR) by isolating the standby from primary site failures. Configuring the standby
+system with identical capacity as the primary also guarantees that performance service-level
+agreements can be met after a switchover or failover operation.
+
+
+2.1.1.1	Elastic Cluster
+You can scale your cluster up or down to meet the needs of your database. The most common case is to add nodes to your database cluster to accommodate more data and provide better query performance. However, you can scale down your cluster if you find that it is overprovisioned or if you need to divert hardware for other uses.
+You scale your cluster by adding or removing nodes. Nodes can be added or removed without having to shut down or restart the database. After adding a node or before removing a node, HP Vertica begins a rebalancing process that moves data around the cluster to populate the new nodes or move data off of nodes about to be removed from the database. During this process data may also be exchanged between nodes that are not being added or removed to maintain robust intelligent  K-safety. If HP Vertica determines that the data cannot be rebalanced in a single iteration due to a lack of disk space, then the rebalance is done in multiple iterations.
+To help make data rebalancing due to cluster scaling more efficient, HP Vertica locally segments data storage on each node so it can be easily moved to other nodes in the cluster. When a new node is added to the cluster, existing nodes in the cluster give up some of their data segments to populate the new node and exchange segments to keep the number of nodes that any one node depends upon to a minimum. This strategy keeps to a minimum the number of nodes that may become critical when a node fails (see Critical Nodes/K-safety). When a node is being removed from the cluster, all of its storage containers are moved to other nodes in the cluster (which also relocates data segments to minimize nodes that may become critical when a node fails). This method of breaking data into portable segments is referred to as elastic cluster, since it makes enlarging or shrinking the cluster easier.
+Pricing of HP Vertica
+Since last fall, Vertica’s stated pricing has been “$100K per terabyte of user data.” Vertica hastens to point out that unlike, for example, appliance vendors or Sybase, it only charges for deployment licenses; development and test are free (although of course you have to Bring Your Own hardware). Offer the past few weeks, I’ve gotten other pricing comments from Vertica to the effect that:
+•	Of course, Vertica offers substantial negotiated quantity discounts.(Specifics that Vertica told me are confidential.)
+•	Actually,Vertica’s official price list (unpublished but apparently freely available to prospects) contains quantity discounts too.
+•	Finally, Vertica told me that its actual average price is around$25K/terabyte, and gave me person to publish same.
+
+Vertica offers the community edition free for up to 1TB of raw storage on up to 3 nodes. Pricing varies depending on how many TB are purchased.
+
+Cluster sizing in HP verica:
+Adding Nodes
+There are many reasons for adding one or more nodes to an installation of HP Vertica:
+•	Increase system performance. Add additional nodes due to a high query load or load latency or increase disk space without adding storage locations to existing nodes.
+Note: The database response time depends on factors such as type and size of the application query, database design, data size and data types stored, available computational power, and network bandwidth. Adding nodes to a database cluster does not necessarily improve the system response time for every query, especially if the response time is already short, e.g., less then 10 seconds, or the response time is not hardware bound.
+•	Make the database K-safe (K-safety=1) or increase K-safety to 2. See Failure Recovery for details.
+•	Swap a node for maintenance. Use a spare machine to temporarily take over the activities of an existing node that needs maintenance. The node that requires maintenance is known ahead of time so that when it is temporarily removed from service, the cluster is not vulnerable to additional node failures.
+•	Replace a node. Permanently add a node to remove obsolete or malfunctioning hardware.
+ROS Pushback
+Each time data is written, another ROS container is created. ROS container holds limited number of containers at once.The maximum number of containers per projection per node is 1024.But the recommended number in less than 700.If the maximum ROS container count is reached on a node,data loading stops.The current input is rolled back. To load more data manual running of the merge out command is required.It can be done by running the following command
+	
+select DO_TM_TASK(‘mergeout’);
+And reload the dataset that was rolled back.
+To avoid this problem it is necessary that one monitors the ros_count
+	select ros_count from projection_storage;
+	
+
+Concurency
+
+Concurrency is a term used to describe having multiple jobs running in an overlapping time interval in a system. It doesn’t necessarily mean that they are or ever will be running at the same instant. Concurrency is synonymous to multi-tasking and it is fundamentally different from parallelism. Most customers do not usually care about concurrency directly. Rather, they have a specific requirement to execute a certain workload in a database governed by a set of throughput and response time (latency) objectives. Throughput (TP) is defined as the number of queries/jobs that a database can perform in a unit of time and is the most commonly used metric to measure a database’s performance. Response time (or latency) is the sum of queuing time and runtime and as such it depends on both concurrency (as a proxy for overall system load) and query performance (= inverse of runtime).
+For a given workload, the three metrics: throughput (TP), concurrency, and performance are related to each other by the simple equation:
+Throughput = Concurrency * Performance
+Knowing any two of these three metrics, you can derive the third. This relationship can be visually illustrated by the following Workload Management Metrics Triangle:
+ 
+Conversion from PL/SQL to HP Vertica
+There are tools to facilitate the conversion from PL/SQL to HP vertica.One such tool is SQL Ways.
+SQLWays has a built-in capability of migrating Oracle packages, triggers, procedures and functions to Java classes with generic rules to create scalar functions for HP Vertica. The tool will create a few separate files for each PL/SQL element.
+From one PL/SQL function or procedure two files are created:
+•	File with function class that carries out the processing you want your user defined functions(UDF) to perform.
+•	File with factory class that provides metadata about the function class, and creates an instance of it to handle function calls.
+SQLWays database conversion software is used for stored procedure migration, function migration, trigger migration, view migration, schema migration, and data migration.
+SQLWays has been used to migrate large ERP database containing over 25,000 tables. The volume of data converted during a SQLWays project has been up to 20 TB, but is more typically about 1 TB. By running up to 10 concurrent copies of SQLWays, data transfer rates of up to 100 GB per hour can be achieved.
+Project Costs
+ 
+Figures produces by the Gartner Group and other industry analysts estimate that the cost of manual code conversion is between $(8-35) per line of code, that the rate of conversion is between (150-200) lines of code per day, and that close to 70% of database migration projects overrun or fail outright.
+ 
+About 95% of the cost of migration is due to the cost of converting business logic rather than DDL. So the cost of migrating is highly dependent on the nature of the database and on what objects have to be converted; for example, the cost of converting a business intelligence database that only contains tables, views, and indexes could be tiny compared to that of converting a transactional database with numerous functions and triggers that implement complex business rules.
+ 
+Many tools will achieve a near 100% conversion rate when converting DDL, but achieving high conversion rates for business logic is very difficult and very dependent on the programming constructs employed by the database developers.
+ 
+For business logic, Ispirer states that the migration cost when using SQLWays can be (7-10) times less than that of a manual conversion – with costs as low $0.25 per line of code in some cases. The cross-over point when automated conversion becomes more cost effective than manual conversion will vary but can be of the order of 10k lines of code (see the graph under Cost of Business Logic Conversion).
+
+Update and Delete operation in HP Vertica:
+The INSERT statement is typically used to load individual rows into physical memory or load a table using INSERT AS SELECT. UPDATE and DELETE are used to modify the data. 
+
+In HP Vertica, delete operations do not actually remove rows from physical storage. Instead, the HP Vertica DELETE statement marks rows as deleted. Update operations have the same effect; the UPDATE statement is actually a combined delete and insert operation. The deleted rows remain in physical storage until the Tuple Mover performs a purge operation to permanently remove deleted data so that the disk space can be reused.
+
+	Buffering Deletes and Updates
+The most efficient way for HP Vertica to perform delete and update operations is to update many database records at a time using fewer statements. You accomplish this by first buffering database deletes and updates in your application before submitting them to HP Vertica. That way, you can manage the flow of the delete and update operations so that they do not interfere with normal database performance.
+
+ DELETE and UPDATE operations go to the  WOS by default, but if the data is sufficiently large and would not fit in memory, HP Vertica automatically switches to using the  ROS.
+
+2.1.1.2	Optimizing DELETEs and UPDATEs for Performance
+The process of optimizing DELETE and UPDATE queries is the same for both operations. Some simple steps can increase the query performance by tens to hundreds of times. The following sections describe several ways to improve projection design and improve DELETE and UPDATE queries to significantly increase DELETE and UPDATE performance.
+Note: For large bulk deletion, HP Vertica recommends using Partitioned Tables where possible because they provide the best DELETE performance and improve query performance.
+Projection Column Requirements for Optimized Deletes
+When all columns required by the DELETE or UPDATE predicate are present in a projection, the projection is optimized for DELETEs and UPDATEs. DELETE and UPDATE operations on such projections are significantly faster than on non-optimized projections. Both simple and pre-join projections can be optimized.
+For example, consider the following table and projections:
+CREATE TABLE t (a INTEGER, b INTEGER, c INTEGER);
+CREATE PROJECTION p1 (a, b, c) AS SELECT * FROM t ORDER BY a;
+CREATE PROJECTION p2 (a, c) AS SELECT a, c FROM t ORDER BY c, a;
+In the following query, both p1 and p2 are eligible for DELETE and UPDATE optimization because column a is available:
+DELETE from t WHERE a = 1;
+In the following example, only projection p1 is eligible for DELETE and UPDATE optimization because the b column is not available in p2:
+DELETE from t WHERE b = 1;
+Optimized Deletes in Subqueries
+To be eligible for DELETE optimization, all target table columns referenced in a DELETE or UPDATE statement's WHERE clause must be in the projection definition.
+For example, the following simple schema has two tables and three projections:
+CREATE TABLE tb1 (a INT, b INT, c INT, d INT);
+CREATE TABLE tb2 (g INT, h INT, i INT, j INT);
+The first projection references all columns in tb1 and sorts on column a:
+CREATE PROJECTION tb1_p AS SELECT a, b, c, d FROM tb1 ORDER BY a;
+The buddy projection references and sorts on column a in tb1:
+CREATE PROJECTION tb1_p_2 AS SELECT a FROM tb1 ORDER BY a;
+This projection references all columns in tb2 and sorts on column i:
+CREATE PROJECTION tb2_p AS SELECT g, h, i, j FROM tb2 ORDER BY i;
+Consider the following DML statement, which references tb1.a in its WHERE clause. Since both projections on tb1 contain column a, both are eligible for the optimized DELETE:
+DELETE FROM tb1 WHERE tb1.a IN (SELECT tb2.i FROM tb2);
+Restrictions
+Optimized DELETEs are not supported under the following conditions:
+•	With pre-join projections on nodes that are down
+•	With replicated and pre-join projections if subqueries reference the target table. For example, the following syntax is not supported:
+DELETE FROM tb1 WHERE tb1.a IN (SELECT e FROM tb2, tb2 WHERE tb2.e = tb1.e);
+•	With subqueries that do not return multiple rows. For example, the following syntax is not supported:
+DELETE FROM tb1 WHERE tb1.a = (SELECT k from tb2);
+Projection Sort Order for Optimizing Deletes
+Design your projections so that frequently-used DELETE or UPDATE predicate columns appear in the sort order of all projections for large DELETEs and UPDATEs.
+For example, suppose most of the DELETE queries you perform on a projection look like the following:
+DELETE from t where time_key < '1-1-2007'
+To optimize the DELETEs, make time_key appear in the ORDER BY clause of all your projections. This schema design results in better performance of the DELETE operation.
+In addition, add additional sort columns to the sort order such that each combination of the sort key values uniquely identifies a row or a small set of rows. For more information, see Choosing Sort Orders for Low Cardinality Predicates. To analyze projections for sort order issues, use the EVALUATE_DELETE_PERFORMANCE function.
+
+
+ 
